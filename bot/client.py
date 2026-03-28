@@ -10,3 +10,7 @@ def get_client():
         os.getenv("API_SECRET"),
         testnet=True
     )
+    
+def get_market_price(client, symbol):
+    ticker = client.futures_symbol_ticker(symbol=symbol)
+    return float(ticker["price"])

@@ -1,25 +1,34 @@
 import typer
-from bot.orders import place_order
+from bot.orders import place_order, get_order_status, format_response
 from bot.validators import validate_order
 from bot.logging_config import setup_logger
 
 app = typer.Typer()
 logger = setup_logger()
 
+
 @app.command()
 def trade(
-    symbol: str,
-    side: str,
-    order_type: str,
-    quantity: float,
-    price: float = None
+    symbol: str = typer.Argument(..., help="Trading pair (e.g., BTCUSDT)"),
+    side: str = typer.Argument(..., help="BUY or SELL"),
+    order_type: str = typer.Argument(..., help="MARKET, LIMIT, STOP_MARKET"),
+    quantity: float = typer.Argument(..., help="Order quantity"),
+    price: float = typer.Option(None, help="Price for LIMIT/STOP orders")
 ):
     try:
         validate_order(symbol, side, order_type, quantity, price)
 
-        logger.info(f"Placing order: {symbol} {side} {order_type}")
+        logger.info(
+            f"Order Request: Symbol={symbol}, Side={side}, Type={order_type}, Qty={quantity}, Price={price}"
+        )
 
         response = place_order(symbol, side, order_type, quantity, price)
+
+        # Format response
+        formatted = format_response(response)
+
+        # Fetch latest status
+        order_status = get_order_status(symbol, formatted["order_id"])
 
         print("\n✅ Order Summary:")
         print(f"Symbol: {symbol}")
@@ -29,21 +38,25 @@ def trade(
         print(f"Price: {price}")
 
         print("\n📦 Response:")
-        print(f"Order ID: {response.get('orderId')}")
-        status = response.get("status")
+        print(f"Order ID: {formatted['order_id']}")
+
+        status = formatted["status"]
         if status == "NEW":
             print("Status: Order placed successfully (pending execution)")
         else:
             print(f"Status: {status}")
 
-        print(f"Executed Qty: {response.get('executedQty')}")
-        print(f"Avg Price: {response.get('avgPrice')}")
+        print(f"Executed Qty: {formatted['executed_qty']}")
+        print(f"Avg Price: {formatted['avg_price']}")
 
-        logger.info(f"Order Success: {response}")
+        print(f"\n🔄 Latest Status: {order_status['status']}")
+
+        logger.info(f"Order Success: {formatted}")
 
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         print(f"\n❌ Error: {str(e)}")
+
 
 if __name__ == "__main__":
     app()
